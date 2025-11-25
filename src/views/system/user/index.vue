@@ -51,17 +51,16 @@ const {
 </script>
 
 <template>
-  <div :class="['flex', 'justify-between', deviceDetection() && 'flex-wrap']">
-    <tree
-      ref="treeRef"
-      :class="['mr-2', deviceDetection() ? 'w-full' : 'min-w-[200px]']"
-      :treeData="treeData"
-      :treeLoading="treeLoading"
-      @tree-select="onTreeSelect"
-    />
-    <div
-      :class="[deviceDetection() ? ['w-full', 'mt-2'] : 'w-[calc(100%-200px)]']"
-    >
+  <div class="flex gap-2" style="flex-direction: row">
+    <div class="w-[220px] flex-shrink-0 h-full">
+      <tree
+        ref="treeRef"
+        :treeData="treeData"
+        :treeLoading="treeLoading"
+        @tree-select="onTreeSelect"
+      />
+    </div>
+    <div class="flex-1 overflow-hidden h-full">
       <el-form
         ref="formRef"
         :inline="true"
@@ -72,6 +71,22 @@ const {
           <el-input
             v-model="form.username"
             placeholder="请输入用户名称"
+            clearable
+            class="w-[180px]!"
+          />
+        </el-form-item>
+        <el-form-item label="用户昵称：" prop="nick_name">
+          <el-input
+            v-model="form.nick_name"
+            placeholder="请输入用户昵称"
+            clearable
+            class="w-[180px]!"
+          />
+        </el-form-item>
+        <el-form-item label="工号：" prop="barcode">
+          <el-input
+            v-model="form.barcode"
+            placeholder="请输入工号"
             clearable
             class="w-[180px]!"
           />
@@ -110,11 +125,7 @@ const {
         </el-form-item>
       </el-form>
 
-      <PureTableBar
-        title="用户管理（仅演示，操作后不生效）"
-        :columns="columns"
-        @refresh="onSearch"
-      >
+      <PureTableBar title="用户管理" :columns="columns" @refresh="onSearch">
         <template #buttons>
           <el-button
             type="primary"
@@ -259,15 +270,8 @@ const {
   margin: 0;
 }
 
-:deep(.el-button:focus-visible) {
-  outline: none;
-}
-
-.main-content {
-  margin: 24px 24px 0 !important;
-}
-
 .search-form {
+  flex-shrink: 0;
   :deep(.el-form-item) {
     margin-bottom: 12px;
   }

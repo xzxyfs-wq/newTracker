@@ -4,9 +4,8 @@ import { isPhone, isEmail } from "@pureadmin/utils";
 
 /** 自定义表单规则校验 */
 export const formRules = reactive(<FormRules>{
-  nickname: [{ required: true, message: "用户昵称为必填项", trigger: "blur" }],
+  nick_name: [{ required: true, message: "用户昵称为必填项", trigger: "blur" }],
   username: [{ required: true, message: "用户名称为必填项", trigger: "blur" }],
-  password: [{ required: true, message: "用户密码为必填项", trigger: "blur" }],
   phone: [
     {
       validator: (rule, value, callback) => {
@@ -35,5 +34,19 @@ export const formRules = reactive(<FormRules>{
       },
       trigger: "blur"
     }
-  ]
+  ],
+  dept_id: [
+    {
+      validator: (rule, value, callback) => {
+        if (!value || value === 0 || value === "") {
+          callback(new Error("归属部门为必填项"));
+        } else {
+          callback();
+        }
+      },
+      trigger: "change"
+    }
+  ],
+  post_id: [{ required: true, message: "岗位为必填项", trigger: "change" }],
+  role_ids: [{ required: true, message: "角色为必填项", trigger: "change" }]
 });

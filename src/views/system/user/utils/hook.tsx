@@ -17,18 +17,14 @@ import {
   hideTextAtIndex,
   deviceDetection
 } from "@pureadmin/utils";
-import {
-  getRoleIds,
-  getDeptList,
-  getUserList,
-  getAllRoleList
-} from "@/api/system";
+import { getRoleIds, roleApi, userApi, deptApi, postApi } from "@/api/system";
 import {
   ElForm,
   ElInput,
   ElFormItem,
   ElProgress,
-  ElMessageBox
+  ElMessageBox,
+  ElMessage
 } from "element-plus";
 import {
   type Ref,
@@ -38,16 +34,19 @@ import {
   watch,
   computed,
   reactive,
-  onMounted
+  onMounted,
+  nextTick
 } from "vue";
 
 export function useUser(tableRef: Ref, treeRef: Ref) {
   const form = reactive({
     // 左侧部门树的id
-    deptId: "",
+    dept_id: "",
     username: "",
+    nick_name: "",
+    barcode: "",
     phone: "",
-    status: ""
+    status: 0
   });
   const formRef = ref();
   const ruleFormRef = ref();
@@ -75,47 +74,19 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       reserveSelection: true // 数据刷新后保留选项
     },
     {
-      label: "用户编号",
-      prop: "id",
-      width: 90
-    },
-    {
-      label: "用户头像",
-      prop: "avatar",
-      cellRenderer: ({ row }) => (
-        <el-image
-          fit="cover"
-          preview-teleported={true}
-          src={row.avatar || userAvatar}
-          preview-src-list={Array.of(row.avatar || userAvatar)}
-          class="w-[24px] h-[24px] rounded-full align-middle"
-        />
-      ),
-      width: 90
-    },
-    {
       label: "用户名称",
       prop: "username",
       minWidth: 130
     },
     {
-      label: "用户昵称",
-      prop: "nickname",
-      minWidth: 130
+      label: "工号",
+      prop: "barcode",
+      minWidth: 120
     },
     {
-      label: "性别",
-      prop: "sex",
-      minWidth: 90,
-      cellRenderer: ({ row, props }) => (
-        <el-tag
-          size={props.size}
-          type={row.sex === 1 ? "danger" : null}
-          effect="plain"
-        >
-          {row.sex === 1 ? "女" : "男"}
-        </el-tag>
-      )
+      label: "用户昵称",
+      prop: "nick_name",
+      minWidth: 130
     },
     {
       label: "部门",
@@ -138,13 +109,30 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
           loading={switchLoadMap.value[scope.index]?.loading}
           v-model={scope.row.status}
           active-value={1}
-          inactive-value={0}
+          inactive-value={-1}
           active-text="已启用"
           inactive-text="已停用"
           inline-prompt
           style={switchStyle.value}
-          onChange={() => onChange(scope as any)}
+          onChange={() => {
+            if (!isInitializing.value) {
+              onChange(scope as any);
+            }
+          }}
         />
+      )
+    },
+    {
+      label: "所有项目权限",
+      prop: "project_auth",
+      minWidth: 120,
+      cellRenderer: ({ row }) => (
+        <el-tag
+          type={row.project_auth === 1 ? "success" : "info"}
+          effect="plain"
+        >
+          {row.project_auth === 1 ? "开启" : "关闭"}
+        </el-tag>
       )
     },
     {
@@ -184,11 +172,13 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   // 当前密码强度（0-4）
   const curScore = ref();
   const roleOptions = ref([]);
+  const postOptions = ref([]);
+  const isInitializing = ref(false);
 
   function onChange({ row, index }) {
     ElMessageBox.confirm(
       `确认要<strong>${
-        row.status === 0 ? "停用" : "启用"
+        row.status === -1 ? "启用" : "停用"
       }</strong><strong style='color:var(--el-color-primary)'>${
         row.username
       }</strong>用户吗?`,
@@ -223,7 +213,7 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
         }, 300);
       })
       .catch(() => {
-        row.status === 0 ? (row.status = 1) : (row.status = 0);
+        row.status === -1 ? (row.status = 1) : (row.status = -1);
       });
   }
 
@@ -237,11 +227,14 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   }
 
   function handleSizeChange(val: number) {
-    console.log(`${val} items per page`);
+    pagination.pageSize = val;
+    pagination.currentPage = 1;
+    onSearch();
   }
 
   function handleCurrentChange(val: number) {
-    console.log(`current page: ${val}`);
+    pagination.currentPage = val;
+    onSearch();
   }
 
   /** 当CheckBox选择项发生变化时会触发该事件 */
@@ -272,38 +265,87 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
 
   async function onSearch() {
     loading.value = true;
-    const { data } = await getUserList(toRaw(form));
-    dataList.value = data.list;
-    pagination.total = data.total;
-    pagination.pageSize = data.pageSize;
-    pagination.currentPage = data.currentPage;
+    try {
+      const params: any = {
+        dept_id:
+          form.dept_id === ""
+            ? 0
+            : typeof form.dept_id === "number"
+              ? form.dept_id
+              : Number(form.dept_id) || 0,
+        page: pagination.currentPage,
+        page_size: pagination.pageSize
+      };
 
-    setTimeout(() => {
-      loading.value = false;
-    }, 500);
+      if (form.username) {
+        params.username = form.username;
+      }
+      if (form.nick_name) {
+        params.nick_name = form.nick_name;
+      }
+      if (form.barcode) {
+        params.barcode = form.barcode;
+      }
+      if (form.phone) {
+        params.phone = form.phone;
+      }
+
+      const response = await userApi.getUserList(params);
+      if (response?.success) {
+        isInitializing.value = true;
+        dataList.value = response.data?.list || [];
+        pagination.total = response.data?.count || 0;
+        pagination.currentPage = response.data?.page || 1;
+        pagination.pageSize = response.data?.page_size || 10;
+        // 等待下一个 tick 后取消初始化标志，避免数据加载时触发 switch 的 change 事件
+        await nextTick();
+        setTimeout(() => {
+          isInitializing.value = false;
+        }, 100);
+      } else {
+        throw new Error(response?.error ?? "获取用户列表失败");
+      }
+    } catch (error) {
+      console.error("获取用户列表失败:", error);
+      dataList.value = [];
+      pagination.total = 0;
+    } finally {
+      setTimeout(() => {
+        loading.value = false;
+      }, 500);
+    }
   }
 
   const resetForm = formEl => {
     if (!formEl) return;
     formEl.resetFields();
-    form.deptId = "";
+    form.dept_id = "";
+    form.username = "";
+    form.nick_name = "";
+    form.barcode = "";
+    form.phone = "";
+    form.status = 0;
     treeRef.value.onTreeReset();
     onSearch();
   };
 
-  function onTreeSelect({ id, selected }) {
-    form.deptId = selected ? id : "";
+  function onTreeSelect(value) {
+    const deptId = value?.dept_id || value?.id;
+    form.dept_id = value?.selected ? deptId : "";
     onSearch();
   }
 
   function formatHigherDeptOptions(treeList) {
-    // 根据返回数据的status字段值判断追加是否禁用disabled字段，返回处理后的树结构，用于上级部门级联选择器的展示（实际开发中也是如此，不可能前端需要的每个字段后端都会返回，这时需要前端自行根据后端返回的某些字段做逻辑处理）
-    if (!treeList || !treeList.length) return;
+    // 根据返回数据的status字段值判断追加是否禁用disabled字段，返回处理后的树结构，用于上级部门级联选择器的展示
+    if (!treeList || !treeList.length) return [];
     const newTreeList = [];
     for (let i = 0; i < treeList.length; i++) {
-      treeList[i].disabled = treeList[i].status === 0 ? true : false;
-      formatHigherDeptOptions(treeList[i].children);
-      newTreeList.push(treeList[i]);
+      const item = { ...treeList[i] };
+      item.disabled = item.status === 0 || item.status === -1;
+      if (item.children && item.children.length > 0) {
+        item.children = formatHigherDeptOptions(item.children);
+      }
+      newTreeList.push(item);
     }
     return newTreeList;
   }
@@ -315,15 +357,21 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
         formInline: {
           title,
           higherDeptOptions: formatHigherDeptOptions(higherDeptOptions.value),
-          parentId: row?.dept.id ?? 0,
-          nickname: row?.nickname ?? "",
+          postOptions: postOptions.value ?? [],
+          roleOptions: roleOptions.value ?? [],
+          user_id: row?.user_id,
+          dept_id: row?.dept_id ?? "",
+          nick_name: row?.nick_name ?? "",
           username: row?.username ?? "",
-          password: row?.password ?? "",
           phone: row?.phone ?? "",
           email: row?.email ?? "",
-          sex: row?.sex ?? "",
           status: row?.status ?? 1,
-          remark: row?.remark ?? ""
+          role_ids: row?.role_ids ?? [],
+          post_id: row?.post_id ?? "",
+          barcode: row?.barcode ?? "",
+          salt: row?.salt ?? "",
+          project_auth: row?.project_auth ?? 1,
+          user_login_type: row?.user_login_type ?? 0
         }
       },
       width: "46%",
@@ -342,16 +390,46 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
           done(); // 关闭弹框
           onSearch(); // 刷新表格数据
         }
-        FormRef.validate(valid => {
+        FormRef.validate(async valid => {
           if (valid) {
-            console.log("curData", curData);
-            // 表单规则校验通过
-            if (title === "新增") {
-              // 实际开发先调用新增接口，再进行下面操作
-              chores();
-            } else {
-              // 实际开发先调用修改接口，再进行下面操作
-              chores();
+            try {
+              if (title === "新增") {
+                const submitData: any = {
+                  username: curData.username,
+                  nick_name: curData.nick_name,
+                  phone: curData.phone || "",
+                  email: curData.email || "",
+                  dept_id:
+                    curData.dept_id === ""
+                      ? 0
+                      : typeof curData.dept_id === "number"
+                        ? curData.dept_id
+                        : Number(curData.dept_id) || 0,
+                  status: curData.status ?? 1,
+                  role_ids: curData.role_ids || [],
+                  post_id:
+                    curData.post_id === ""
+                      ? 0
+                      : typeof curData.post_id === "number"
+                        ? curData.post_id
+                        : Number(curData.post_id) || 0,
+                  barcode: curData.barcode || "",
+                  salt: curData.salt || "",
+                  project_auth: curData.project_auth ?? 1,
+                  user_login_type: curData.user_login_type || 0
+                };
+                const res = await userApi.createUser(submitData);
+                if (!res?.success) {
+                  throw new Error(res?.error ?? "新增用户失败");
+                }
+                chores();
+              } else {
+                // 修改用户逻辑
+                chores();
+              }
+            } catch (error) {
+              console.error(`${title}用户失败:`, error);
+              ElMessage.error(error?.message || `${title}用户失败`);
             }
           }
         });
@@ -466,13 +544,14 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   /** 分配角色 */
   async function handleRole(row) {
     // 选中的角色列表
-    const ids = (await getRoleIds({ userId: row.id })).data ?? [];
+    const roleIdsResponse = await getRoleIds({ userId: row.id });
+    const ids = (roleIdsResponse as any)?.data ?? [];
     addDialog({
       title: `分配 ${row.username} 用户的角色`,
       props: {
         formInline: {
           username: row?.username ?? "",
-          nickname: row?.nickname ?? "",
+          nick_name: row?.nick_name ?? "",
           roleOptions: roleOptions.value ?? [],
           ids
         }
@@ -494,16 +573,79 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
 
   onMounted(async () => {
     treeLoading.value = true;
-    onSearch();
 
-    // 归属部门
-    const { data } = await getDeptList();
-    higherDeptOptions.value = handleTree(data);
-    treeData.value = handleTree(data);
-    treeLoading.value = false;
+    try {
+      // 先获取部门列表
+      const deptResponse = await deptApi.getDeptList();
+      if (deptResponse?.success && deptResponse?.data) {
+        // 处理 children 为 null 的情况，转换为空数组
+        const processTreeData = (data: any[]): any[] => {
+          return data.map(item => ({
+            ...item,
+            children:
+              item.children === null || item.children === undefined
+                ? []
+                : processTreeData(item.children || [])
+          }));
+        };
+        const processedData = processTreeData(deptResponse.data);
+        treeData.value = processedData;
+        higherDeptOptions.value = processedData;
 
-    // 角色列表
-    roleOptions.value = (await getAllRoleList()).data;
+        // 取第一条部门的id，设置到form中并调用用户列表接口
+        if (processedData && processedData.length > 0) {
+          const firstDeptId = processedData[0].dept_id;
+          // 等待DOM更新后设置树组件的选中状态
+          await nextTick();
+          treeRef.value?.setCurrentKey(firstDeptId);
+          // 触发选中事件（会自动调用onSearch）
+          onTreeSelect({
+            ...processedData[0],
+            selected: true
+          });
+        } else {
+          onSearch();
+        }
+      } else {
+        throw new Error(deptResponse?.error ?? "获取部门列表失败");
+      }
+    } catch (error) {
+      console.error("获取部门列表失败:", error);
+      treeData.value = [];
+      higherDeptOptions.value = [];
+      onSearch();
+    } finally {
+      treeLoading.value = false;
+    }
+
+    // 获取角色列表（用于分配角色功能）
+    try {
+      const roleResponse = await roleApi.getRoleSelectList();
+      if (roleResponse?.success) {
+        roleOptions.value = roleResponse.data ?? [];
+      } else {
+        throw new Error(roleResponse?.error ?? "获取角色列表失败");
+      }
+    } catch (error) {
+      console.error("获取角色列表失败:", error);
+      roleOptions.value = [];
+    }
+
+    // 获取岗位列表
+    try {
+      const postResponse = await postApi.getPostList({
+        page: 1,
+        page_size: 1000
+      });
+      if (postResponse?.success && postResponse?.data?.list) {
+        postOptions.value = postResponse.data.list;
+      } else {
+        postOptions.value = [];
+      }
+    } catch (error) {
+      console.error("获取岗位列表失败:", error);
+      postOptions.value = [];
+    }
   });
 
   return {

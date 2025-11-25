@@ -5,9 +5,22 @@ export const getUserList = (params?: object) => {
   return serviceCall<responseResult>({ action: "GetUserList", params });
 };
 
-/** 系统管理-用户管理-获取所有角色列表 */
-export const getAllRoleList = (params?: object) => {
-  return serviceCall({ action: "GetAllRoleList", params });
+/** 系统管理-用户管理 API */
+export const userApi = {
+  getUserList: (params?: object) => {
+    return serviceCall<responseResultWithPage>({
+      action: "get_sys_user_list",
+      mod: "user",
+      params
+    });
+  },
+  createUser: (params?: object) => {
+    return serviceCall<responseResult>({
+      action: "create_sys_user",
+      mod: "user",
+      params
+    });
+  }
 };
 
 /** 系统管理-用户管理-根据userId，获取对应角色id列表（userId：用户id） */
@@ -92,6 +105,13 @@ export const roleApi = {
   getRoleList: (params?: object) => {
     return serviceCall<responseResultWithPage>({
       action: "get_role_list",
+      mod: "role",
+      params
+    });
+  },
+  getRoleSelectList: (params?: object) => {
+    return serviceCall<responseResult>({
+      action: "get_role_select_list",
       mod: "role",
       params
     });

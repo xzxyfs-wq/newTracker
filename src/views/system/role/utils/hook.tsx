@@ -45,11 +45,6 @@ export function useRole(treeRef: Ref) {
   });
   const columns: TableColumnList = [
     {
-      label: "角色编号",
-      prop: "role_id",
-      minWidth: 100
-    },
-    {
       label: "角色名称",
       prop: "role_name",
       minWidth: 150
@@ -61,7 +56,7 @@ export function useRole(treeRef: Ref) {
     },
     {
       label: "显示顺序",
-      prop: "sort",
+      prop: "role_sort",
       minWidth: 100
     },
     {
@@ -69,23 +64,15 @@ export function useRole(treeRef: Ref) {
       prop: "status",
       minWidth: 100,
       cellRenderer: ({ row, props }) => {
-        const activeOption = statusOptions.value.find(
-          (item: any) => item.dictValue === "0" || item.dictValue === 0
-        );
-        const inactiveOption = statusOptions.value.find(
-          (item: any) => item.dictValue === "1" || item.dictValue === 1
-        );
-        const activeText = activeOption?.dictLabel || "正常";
-        const inactiveText = inactiveOption?.dictLabel || "停用";
         return (
           <el-switch
             size={props.size === "small" ? "small" : "default"}
             loading={row.loading}
             modelValue={row.status}
-            active-value={"0"}
-            inactive-value={"1"}
-            active-text={activeText}
-            inactive-text={inactiveText}
+            active-value={1}
+            inactive-value={-1}
+            active-text={"启用"}
+            inactive-text={"停用"}
             inline-prompt
             style={switchStyle.value}
             before-change={() => onChange(row)}
@@ -122,11 +109,9 @@ export function useRole(treeRef: Ref) {
 
     try {
       await ElMessageBox.confirm(
-        `确认要<strong>${
-          row.status === "0" || row.status === 0 ? "停用" : "启用"
-        }</strong><strong style='color:var(--el-color-primary)'>${
-          row.role_name || row.roleName || row.name
-        }</strong>吗?`,
+        `确认要<strong>${row.status === 1 ? "停用" : "启用"}</strong>
+        <strong style='color:var(--el-color-primary)'>
+        ${row.role_name ?? ""}</strong> 吗?`,
         "系统提示",
         {
           confirmButtonText: "确定",
@@ -137,25 +122,17 @@ export function useRole(treeRef: Ref) {
         }
       );
       row.loading = true;
-      const submitData: any = {
-        role_id: row.role_id || row.roleId || row.id,
-        role_name: row.role_name || row.roleName || row.name,
-        role_key: row.role_key || row.roleKey || row.code,
-        role_sort: row.role_sort || row.roleSort || row.sort || 0,
-        status: row.status,
-        remark: row.remark || "",
-        admin: row.admin || "",
-        data_scope: row.data_scope || row.dataScope || ""
-      };
-      const res: any = await roleApi.updateRole(submitData);
-      if (res?.code !== 200 && !res?.success) {
-        throw new Error(res?.msg || res?.error || "更新失败");
+      const res: any = await roleApi.updateRole({
+        ...row,
+        status: row.status === 1 ? -1 : 1
+      });
+      if (!res?.success) {
+        throw new Error(res?.error ?? "更新失败");
       }
       ElMessage.success(`操作成功`);
-      return true;
+      onSearch();
     } catch (error) {
       console.error("更新角色状态失败:", error);
-      return false;
     } finally {
       row.loading = false;
     }
@@ -241,19 +218,12 @@ export function useRole(treeRef: Ref) {
       title: `${title}角色`,
       props: {
         formInline: {
-          role_id: row?.role_id || row?.roleId || row?.id,
-          role_name: (row?.role_name || row?.roleName || row?.name) ?? "",
-          role_key: (row?.role_key || row?.roleKey || row?.code) ?? "",
-          role_sort: row?.role_sort || row?.roleSort || row?.sort || 0,
-          status:
-            row?.status !== undefined
-              ? typeof row.status === "string"
-                ? Number(row.status)
-                : row.status
-              : 0,
-          remark: row?.remark ?? "",
-          admin: row?.admin ?? "",
-          data_scope: row?.data_scope || row?.dataScope || ""
+          role_id: row?.role_id ?? 0,
+          role_name: row?.role_name ?? "",
+          role_key: row?.role_key ?? "",
+          role_sort: row?.role_sort ?? 0,
+          status: row?.status ?? 1,
+          remark: row?.remark ?? ""
         }
       },
       width: "40%",
@@ -273,26 +243,18 @@ export function useRole(treeRef: Ref) {
         FormRef.validate(async valid => {
           if (valid) {
             try {
-              const submitData: any = {
-                role_name: curData.role_name,
-                role_key: curData.role_key,
-                role_sort: curData.role_sort || 0,
-                status: curData.status || 0,
-                remark: curData.remark || "",
-                admin: curData.admin || "",
-                data_scope: curData.data_scope || ""
-              };
-
-              if (title === "新增") {
-                await roleApi.addRole(submitData);
+              let res: any;
+              if (!curData.role_id) {
+                res = await roleApi.addRole(curData);
               } else {
-                submitData.role_id = row?.role_id || row?.roleId || row?.id;
-                await roleApi.updateRole(submitData);
+                res = await roleApi.updateRole(curData);
+              }
+              if (!res?.success) {
+                throw new Error(res?.error ?? "操作失败");
               }
               chores();
             } catch (error) {
               console.error(`${title}角色失败:`, error);
-              ElMessage.error(`${title}角色失败`);
             }
           }
         });

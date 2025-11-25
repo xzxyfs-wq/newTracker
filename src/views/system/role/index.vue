@@ -122,12 +122,8 @@ onMounted(() => {
           clearable
           class="w-[180px]!"
         >
-          <el-option
-            v-for="option in statusOptions"
-            :key="option.dictValue"
-            :label="option.dictLabel"
-            :value="option.dictValue"
-          />
+          <el-option label="启用" :value="1" />
+          <el-option label="停用" :value="-1" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -206,7 +202,7 @@ onMounted(() => {
                   <el-button
                     class="reset-margin"
                     link
-                    type="primary"
+                    type="danger"
                     :size="size"
                     :icon="useRenderIcon(Delete)"
                   >

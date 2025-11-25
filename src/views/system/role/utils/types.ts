@@ -5,8 +5,6 @@ interface FormItemProps {
   role_sort: number;
   status: number;
   remark: string;
-  admin?: string;
-  data_scope?: string;
 }
 interface FormProps {
   formInline: FormItemProps;

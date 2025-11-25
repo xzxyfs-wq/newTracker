@@ -6,7 +6,7 @@ import { RoleFormProps } from "../utils/types";
 const props = withDefaults(defineProps<RoleFormProps>(), {
   formInline: () => ({
     username: "",
-    nickname: "",
+    nick_name: "",
     roleOptions: [],
     ids: []
   })
@@ -24,8 +24,8 @@ const newFormInline = ref(props.formInline);
         </el-form-item>
       </re-col> -->
       <re-col>
-        <el-form-item label="用户昵称" prop="nickname">
-          <el-input v-model="newFormInline.nickname" disabled />
+        <el-form-item label="用户昵称" prop="nick_name">
+          <el-input v-model="newFormInline.nick_name" disabled />
         </el-form-item>
       </re-col>
       <re-col>

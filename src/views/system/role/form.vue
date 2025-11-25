@@ -11,10 +11,8 @@ const props = withDefaults(defineProps<FormProps>(), {
     role_name: "",
     role_key: "",
     role_sort: 0,
-    status: 0,
-    remark: "",
-    admin: "",
-    data_scope: ""
+    status: 1,
+    remark: ""
   })
 });
 
@@ -74,29 +72,12 @@ defineExpose({ getRef });
         <el-form-item label="状态" prop="status">
           <el-switch
             v-model="newFormInline.status"
-            :active-value="0"
-            :inactive-value="1"
+            :active-value="1"
+            :inactive-value="-1"
+            active-text="启用"
+            inactive-text="停用"
+            inline-prompt
             :style="switchStyle"
-          />
-        </el-form-item>
-      </re-col>
-
-      <re-col :value="12" :xs="24" :sm="24">
-        <el-form-item label="管理员" prop="admin">
-          <el-input
-            v-model="newFormInline.admin"
-            clearable
-            placeholder="请输入管理员"
-          />
-        </el-form-item>
-      </re-col>
-
-      <re-col :value="12" :xs="24" :sm="24">
-        <el-form-item label="数据权限" prop="data_scope">
-          <el-input
-            v-model="newFormInline.data_scope"
-            clearable
-            placeholder="请输入数据权限"
           />
         </el-form-item>
       </re-col>
