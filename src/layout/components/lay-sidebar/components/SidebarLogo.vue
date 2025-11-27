@@ -1,12 +1,16 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { getTopMenu } from "@/router/utils";
 import { useNav } from "@/layout/hooks/useNav";
-
+import { configApi } from "@/api/system";
 defineProps({
   collapse: Boolean
 });
-
-const { title, getLogo } = useNav();
+const title = ref<string>("");
+configApi.getConfig({ config_key: "systemName" }).then(res => {
+  title.value = res.data.config_value;
+});
+const { getLogo } = useNav();
 </script>
 
 <template>

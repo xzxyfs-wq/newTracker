@@ -33,10 +33,16 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     phone: "",
     status: 0
   });
+  // 保存当前选中部门的完整信息
+  const selectedDeptInfo = ref<any>(null);
   const formRef = ref();
   const ruleFormRef = ref();
   const dataList = ref([]);
   const loading = ref(true);
+  // 存储每行正在编辑的工号值
+  const editingBarcodes = ref<Record<number, string>>({});
+  // 当前正在编辑工号的行ID（全局唯一，同一时间只能有一行在编辑）
+  const nowEditingId = ref<number | null>(null);
   // 上传头像信息
   const avatarInfo = ref();
   const switchLoadMap = ref({});
@@ -66,7 +72,78 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     {
       label: "工号",
       prop: "barcode",
-      minWidth: 150
+      width: 150,
+      cellRenderer: scope => {
+        const rowId = scope.row.user_id || scope.row.id;
+        const originalBarcode = scope.row.barcode || "";
+        const isEditing = nowEditingId.value === rowId;
+
+        // 初始化编辑值
+        if (editingBarcodes.value[rowId] === undefined) {
+          editingBarcodes.value[rowId] = originalBarcode;
+        }
+
+        // 如果正在编辑，显示输入框
+        if (isEditing) {
+          return (
+            <el-input
+              ref={(el: any) => {
+                // 自动聚焦
+                if (el) {
+                  nextTick(() => {
+                    el.focus();
+                  });
+                }
+              }}
+              style={{ width: "100%", maxWidth: "100%" }}
+              modelValue={editingBarcodes.value[rowId]}
+              onUpdate:modelValue={(val: string) => {
+                editingBarcodes.value[rowId] = val;
+              }}
+              size="small"
+              placeholder="请输入工号"
+              clearable
+              onBlur={() => {
+                const currentBarcode = editingBarcodes.value[rowId] || "";
+                if (currentBarcode !== originalBarcode) {
+                  handleBarcodeChange(scope.row, currentBarcode);
+                } else {
+                  // 如果没变化，恢复原值
+                  editingBarcodes.value[rowId] = originalBarcode;
+                }
+                // 退出编辑状态
+                nowEditingId.value = null;
+              }}
+              onKeyup={(e: KeyboardEvent) => {
+                if (e.key === "Enter") {
+                  const currentBarcode = editingBarcodes.value[rowId] || "";
+                  if (currentBarcode !== originalBarcode) {
+                    handleBarcodeChange(scope.row, currentBarcode);
+                  }
+                  // 退出编辑状态
+                  nowEditingId.value = null;
+                } else if (e.key === "Escape") {
+                  // ESC 键恢复原值并退出编辑状态
+                  editingBarcodes.value[rowId] = originalBarcode;
+                  nowEditingId.value = null;
+                }
+              }}
+            />
+          );
+        }
+
+        // 默认显示文本，点击切换为编辑状态
+        return (
+          <span
+            onClick={() => {
+              nowEditingId.value = rowId;
+              editingBarcodes.value[rowId] = originalBarcode;
+            }}
+          >
+            {originalBarcode || "点击编辑"}
+          </span>
+        );
+      }
     },
     {
       label: "用户昵称",
@@ -209,6 +286,34 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     console.log(row);
   }
 
+  /** 更新工号 */
+  async function handleBarcodeChange(row: any, newBarcode: string) {
+    const rowId = row.user_id || row.id;
+    const originalBarcode = row.barcode || "";
+    try {
+      const params = {
+        user_id: rowId,
+        barcode: newBarcode || ""
+      };
+      const res = await userApi.updateUserBarcode(params);
+      if (res?.success) {
+        row.barcode = newBarcode;
+        editingBarcodes.value[rowId] = newBarcode;
+        nowEditingId.value = null; // 退出编辑状态
+        ElMessage.success("工号更新成功");
+      } else {
+        throw new Error(res?.error ?? "工号更新失败");
+      }
+    } catch (error) {
+      console.error("工号更新失败:", error);
+      ElMessage.error(error?.message || "工号更新失败");
+      // 恢复原值并退出编辑状态
+      editingBarcodes.value[rowId] = originalBarcode;
+      nowEditingId.value = null;
+      row.barcode = originalBarcode;
+    }
+  }
+
   function handleDelete(row) {
     ElMessage.success(`操作成功`);
     onSearch();
@@ -293,6 +398,15 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
         pagination.total = response.data?.count || 0;
         pagination.currentPage = response.data?.page || 1;
         pagination.pageSize = response.data?.page_size || 10;
+        // 初始化每行的工号编辑值
+        dataList.value.forEach((item: any) => {
+          const rowId = item.user_id || item.id;
+          if (rowId) {
+            editingBarcodes.value[rowId] = item.barcode || "";
+          }
+        });
+        // 数据刷新后，退出所有编辑状态
+        nowEditingId.value = null;
         // 等待下一个 tick 后取消初始化标志，避免数据加载时触发 switch 的 change 事件
         await nextTick();
         setTimeout(() => {
@@ -324,6 +438,8 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
     form.barcode = "";
     form.phone = "";
     form.status = 0;
+    // 清空当前选中部门信息
+    selectedDeptInfo.value = null;
     treeRef.value.onTreeReset();
     onSearch();
   };
@@ -331,16 +447,19 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
   function onTreeSelect(value) {
     const deptId = value?.dept_id || value?.id;
     form.dept_id = value?.selected ? deptId : "";
+    // 保存当前选中部门的完整信息
+    selectedDeptInfo.value = value?.selected ? value : null;
     onSearch();
   }
 
   function formatHigherDeptOptions(treeList) {
     // 根据返回数据的status字段值判断追加是否禁用disabled字段，返回处理后的树结构，用于上级部门级联选择器的展示
+    // 只禁用 status 为 -1 的部门
     if (!treeList || !treeList.length) return [];
     const newTreeList = [];
     for (let i = 0; i < treeList.length; i++) {
       const item = { ...treeList[i] };
-      item.disabled = item.status === 0 || item.status === -1;
+      item.disabled = item.status === -1;
       if (item.children && item.children.length > 0) {
         item.children = formatHigherDeptOptions(item.children);
       }
@@ -359,7 +478,10 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
           postOptions: postOptions.value ?? [],
           roleOptions: roleOptions.value ?? [],
           user_id: row?.user_id,
-          dept_id: row?.dept_id ?? "",
+          // 如果是新增，使用当前选中的部门（但需要检查是否被禁用）；如果是编辑，使用用户原有的部门
+          dept_id:
+            row?.dept_id ??
+            (selectedDeptInfo.value?.status === -1 ? "" : form.dept_id || ""),
           nick_name: row?.nick_name ?? "",
           username: row?.username ?? "",
           phone: row?.phone ?? "",
@@ -367,12 +489,11 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
           status: row?.status ?? 1,
           role_ids: row?.roles.map(item => item.role_id) ?? [],
           post_id: row?.post_id ?? "",
-          barcode: row?.barcode ?? "",
           identify_no: row?.identify_no ?? "",
           account_expire_date: row?.account_expire_date ?? "",
           salt: row?.salt ?? "",
           project_auth: row?.project_auth ?? 1,
-          user_login_type: row?.user_login_type ?? 0
+          user_login_type: row?.user_login_type ?? 1
         }
       },
       width: "46%",
@@ -384,7 +505,6 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
       beforeSure: (done, { options }) => {
         const FormRef = formRef.value.getRef();
         const curData = options.props.formInline as FormItemProps;
-        console.log(curData);
         function chores() {
           ElMessage.success(`操作成功`);
           done(); // 关闭弹框
@@ -393,32 +513,15 @@ export function useUser(tableRef: Ref, treeRef: Ref) {
         FormRef.validate(async valid => {
           if (valid) {
             try {
-              // 获取表单实际值，确保所有字段都是最新的
-              const formData = FormRef.model || {};
-
-              // 构建提交数据，优先使用表单的实际值
-              const submitData: any = {
-                ...curData,
-                ...formData,
-                // 确保日期字段正确传递（如果为 null 或 undefined，转换为空字符串）
-                account_expire_date:
-                  formData.account_expire_date ??
-                  curData.account_expire_date ??
-                  ""
-              };
-
               let res;
               if (!curData.user_id) {
-                res = await userApi.createUser(submitData);
-                if (!res?.success) {
-                  throw new Error(res?.error ?? "新增用户失败");
-                }
+                res = await userApi.createUser(curData);
               } else {
                 // 修改用户逻辑
-                res = await userApi.updateUser(submitData);
-                if (!res?.success) {
-                  throw new Error(res?.error ?? "修改用户失败");
-                }
+                res = await userApi.updateUser(curData);
+              }
+              if (!res?.success) {
+                throw new Error(res?.error ?? "新增用户失败");
               }
               chores();
             } catch (error) {

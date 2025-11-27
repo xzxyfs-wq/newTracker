@@ -34,6 +34,13 @@ export const userApi = {
       mod: "user",
       params
     });
+  },
+  updateUserBarcode: (params?: object) => {
+    return serviceCall<responseResult>({
+      action: "update_sys_user_barcode",
+      mod: "user",
+      params
+    });
   }
 };
 
@@ -286,7 +293,7 @@ export const configApi = {
     });
   },
   getConfig: (params?: object) => {
-    return serviceCall<responseResult>({
+    return serviceCall<any>({
       action: "get_config",
       mod: "config",
       params

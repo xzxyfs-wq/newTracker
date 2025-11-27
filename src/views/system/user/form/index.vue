@@ -19,11 +19,10 @@ const props = withDefaults(defineProps<FormProps>(), {
     project_auth: 1,
     role_ids: [],
     post_id: "",
-    barcode: "",
     identify_no: "",
     account_expire_date: "",
     salt: "",
-    user_login_type: 0
+    user_login_type: 1
   })
 });
 
@@ -60,15 +59,6 @@ defineExpose({ getRef });
             v-model="newFormInline.username"
             clearable
             placeholder="请输入用户名称"
-          />
-        </el-form-item>
-      </re-col>
-      <re-col :value="12" :xs="24" :sm="24">
-        <el-form-item label="工号" prop="barcode">
-          <el-input
-            v-model="newFormInline.barcode"
-            clearable
-            placeholder="请输入工号"
           />
         </el-form-item>
       </re-col>
@@ -118,7 +108,12 @@ defineExpose({ getRef });
             clearable
             filterable
             placeholder="请选择归属部门"
-          />
+          >
+            <template #default="{ node, data }">
+              <span>{{ data.dept_name }}</span>
+              <span v-if="data.status === -1">（已禁用）</span>
+            </template>
+          </el-tree-select>
         </el-form-item>
       </re-col>
       <re-col :value="12" :xs="24" :sm="24">
@@ -186,6 +181,19 @@ defineExpose({ getRef });
             class="w-full"
             clearable
           />
+        </el-form-item>
+      </re-col>
+      <re-col :value="12" :xs="24" :sm="24">
+        <el-form-item label="登录类型" prop="user_login_type">
+          <el-select
+            v-model="newFormInline.user_login_type"
+            placeholder="请选择登录类型"
+            class="w-full"
+          >
+            <el-option label="普通登录" :value="1" />
+            <el-option label="CA登录" :value="2" />
+            <el-option label="混合登录" :value="3" />
+          </el-select>
         </el-form-item>
       </re-col>
     </el-row>
