@@ -33,7 +33,7 @@ export default ({ mode }: ConfigEnv): UserConfigExport => {
       // 本地跨域代理 https://cn.vitejs.dev/config/server-options.html#server-proxy
       proxy: {
         "/api": {
-          target: "http://192.168.9.38:3000",
+          target: "http://192.168.9.121:3000",
           changeOrigin: true,
           rewrite: path => path.replace(/^\/api/, "")
         }

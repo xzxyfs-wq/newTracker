@@ -48,5 +48,23 @@ export const formRules = reactive(<FormRules>{
     }
   ],
   post_id: [{ required: true, message: "岗位为必填项", trigger: "change" }],
-  role_ids: [{ required: true, message: "角色为必填项", trigger: "change" }]
+  role_ids: [{ required: true, message: "角色为必填项", trigger: "change" }],
+  identify_no: [
+    {
+      validator: (rule, value, callback) => {
+        if (value === "" || !value) {
+          callback();
+        } else {
+          // 支持15位或18位身份证号码
+          const idCardRegex = /^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$|^[1-9]\d{7}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}$/;
+          if (!idCardRegex.test(value)) {
+            callback(new Error("请输入正确的证件号格式（15位或18位）"));
+          } else {
+            callback();
+          }
+        }
+      },
+      trigger: "blur"
+    }
+  ]
 });

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, reactive } from "vue";
 import { PureTableBar } from "@/components/RePureTableBar";
+import { useRenderIcon } from "@/components/ReIcon/src/hooks";
+import Refresh from "~icons/ep/refresh";
 
 interface Props {
   /** 表格标题 */
@@ -44,10 +46,14 @@ interface Props {
   stripe?: boolean;
   /** 最大高度 */
   maxHeight?: string | number;
+  /** 是否显示筛选表单 */
+  showSearchForm?: boolean;
+  /** 筛选表单是否默认展开 */
+  searchFormExpand?: boolean;
 }
 
 interface Emits {
-  (e: "refresh"): void;
+  (e: "refresh", formData: Record<string, any>): void;
   (e: "selection-change", selection: any[]): void;
   (e: "page-size-change", size: number): void;
   (e: "page-current-change", page: number): void;
@@ -71,21 +77,48 @@ const props = withDefaults(defineProps<Props>(), {
   tableKey: "0",
   isExpandAll: true,
   border: false,
-  stripe: false
+  stripe: false,
+  showSearchForm: false,
+  searchFormExpand: true
 });
 
 const emit = defineEmits<Emits>();
 
 const tableRef = ref();
+const formRef = ref();
+
+// 表单数据，在组件内部管理
+const searchForm = reactive<Record<string, any>>({});
 
 // 计算属性：获取表格实例
 const tableInstance = computed(() => {
   return tableRef.value?.getTableRef?.() || tableRef.value;
 });
 
-// 刷新处理
+// 需要排除的插槽名称列表
+const excludedSlots = ["buttons", "title", "before-table", "search-form"];
+
+// 刷新处理，传递表单数据
 const handleRefresh = () => {
-  emit("refresh");
+  emit("refresh", { ...searchForm });
+};
+
+// 搜索处理
+const handleSearch = () => {
+  emit("refresh", { ...searchForm });
+};
+
+// 重置表单
+const handleResetForm = () => {
+  if (formRef.value) {
+    formRef.value.resetFields();
+  }
+  // 清空表单数据
+  Object.keys(searchForm).forEach(key => {
+    searchForm[key] = undefined;
+  });
+  // 重置后触发搜索
+  emit("refresh", { ...searchForm });
 };
 
 // 选择变化处理
@@ -108,57 +141,123 @@ const handleFullscreen = (isFullscreen: boolean) => {
   emit("fullscreen", isFullscreen);
 };
 
-// 暴露表格实例方法
+// 暴露表格实例方法和表单数据
 defineExpose({
   getTableRef: () => tableInstance.value,
-  tableRef: tableInstance
+  tableRef: tableInstance,
+  searchForm,
+  formRef,
+  resetSearchForm: handleResetForm
 });
 </script>
 
 <template>
-  <PureTableBar
-    :title="title"
-    :columns="columns"
-    :table-ref="tableInstance"
-    :table-key="tableKey"
-    :is-expand-all="isExpandAll"
-    @refresh="handleRefresh"
-    @fullscreen="handleFullscreen"
-  >
-    <template #buttons>
-      <slot name="buttons" />
-    </template>
-    <template v-if="$slots.title" #title>
-      <slot name="title" />
-    </template>
-    <template v-slot="{ size, dynamicColumns }">
-      <slot name="before-table" :size="size" :dynamicColumns="dynamicColumns" />
-      <pure-table
-        ref="tableRef"
-        :row-key="rowKey"
-        :adaptive="adaptive"
-        :adaptive-config="adaptiveConfig"
-        :align-whole="alignWhole"
-        :table-layout="tableLayout"
-        :loading="loading"
-        :size="size"
-        :data="data"
-        :columns="dynamicColumns"
-        :pagination="{ ...pagination, size }"
-        :header-cell-style="headerCellStyle"
-        :border="border"
-        :stripe="stripe"
-        :max-height="maxHeight"
-        v-bind="$attrs"
-        @selection-change="handleSelectionChange"
-        @page-size-change="handleSizeChange"
-        @page-current-change="handleCurrentChange"
+  <div class="re-table-wrapper">
+    <!-- 筛选表单区域 -->
+    <div
+      v-show="showSearchForm && searchFormExpand"
+      class="search-form-wrapper"
+    >
+      <el-form
+        ref="formRef"
+        :inline="true"
+        :model="searchForm"
+        class="search-form"
       >
-        <!-- 传递所有插槽给 pure-table，排除 buttons、title、before-table -->
-        <template v-for="(_, name) in $slots" :key="name" #[name]="slotData">
-          <slot :name="name" v-bind="slotData" />
+        <slot name="search-form" :form="searchForm" :formRef="formRef" />
+        <!-- 如果插槽没有提供按钮，则显示默认的搜索和重置按钮 -->
+        <template v-if="!$slots['search-form-buttons']">
+          <el-form-item>
+            <el-button
+              type="primary"
+              :icon="useRenderIcon('ri/search-line')"
+              :loading="loading"
+              @click="handleSearch"
+            >
+              搜索
+            </el-button>
+            <el-button :icon="useRenderIcon(Refresh)" @click="handleResetForm">
+              重置
+            </el-button>
+          </el-form-item>
         </template>
-      </pure-table>
-    </template>
-  </PureTableBar>
+        <!-- 自定义按钮插槽 -->
+        <template v-else>
+          <slot
+            name="search-form-buttons"
+            :form="searchForm"
+            :formRef="formRef"
+            :onSearch="handleSearch"
+            :onReset="handleResetForm"
+          />
+        </template>
+      </el-form>
+    </div>
+    <PureTableBar
+      :title="title"
+      :columns="columns"
+      :table-ref="tableInstance"
+      :table-key="tableKey"
+      :is-expand-all="isExpandAll"
+      @refresh="handleRefresh"
+      @fullscreen="handleFullscreen"
+    >
+      <template #buttons>
+        <slot name="buttons" />
+      </template>
+      <template v-if="$slots.title" #title>
+        <slot name="title" />
+      </template>
+      <template v-slot="{ size, dynamicColumns }">
+        <slot
+          name="before-table"
+          :size="size"
+          :dynamicColumns="dynamicColumns"
+        />
+        <pure-table
+          ref="tableRef"
+          :row-key="rowKey"
+          :adaptive="adaptive"
+          :adaptive-config="adaptiveConfig"
+          :align-whole="alignWhole"
+          :table-layout="tableLayout"
+          :loading="loading"
+          :size="size"
+          :data="data"
+          :columns="dynamicColumns"
+          :pagination="{ ...pagination, size }"
+          :header-cell-style="headerCellStyle"
+          :border="border"
+          :stripe="stripe"
+          :max-height="maxHeight"
+          v-bind="$attrs"
+          @selection-change="handleSelectionChange"
+          @page-size-change="handleSizeChange"
+          @page-current-change="handleCurrentChange"
+        >
+          <!-- 手动传递常见插槽，其他插槽通过 $slots 自动传递 -->
+          <template v-if="$slots.operation" #operation="slotData">
+            <slot name="operation" v-bind="slotData" />
+          </template>
+        </pure-table>
+      </template>
+    </PureTableBar>
+  </div>
 </template>
+
+<style lang="scss" scoped>
+.re-table-wrapper {
+  .search-form-wrapper {
+    background-color: var(--el-bg-color);
+    padding: 12px 24px 0;
+    border-radius: 4px;
+
+    :deep(.search-form) {
+      .el-form-item {
+        margin-bottom: 12px;
+        margin-right: 12px;
+      }
+    }
+  }
+}
+</style>

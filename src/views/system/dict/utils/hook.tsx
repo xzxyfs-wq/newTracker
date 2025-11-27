@@ -1,7 +1,7 @@
 import dayjs from "dayjs";
 import editForm from "../form.vue";
 import dictDataForm from "../data/form.vue";
-import { message } from "@/utils/message";
+import { ElMessage } from "element-plus";
 import { dictApi } from "@/api/system";
 import { usePublicHooks } from "../../hooks";
 import { addDialog } from "@/components/ReDialog";
@@ -15,15 +15,8 @@ const editFormComponent = markRaw(editForm);
 const dictDataFormComponent = markRaw(dictDataForm);
 
 export function useDict() {
-  const form = reactive({
-    dict_type_name: "",
-    dict_type_code: "",
-    status: 0,
-    remark: ""
-  });
-
-  const formRef = ref();
   const tableRef = ref();
+  const editFormRef = ref();
   const dataList = ref([]);
   const loading = ref(true);
   const selectedRows = ref<FormItemProps[]>([]);
@@ -168,7 +161,7 @@ export function useDict() {
 
   function openDictDataDialog(title = "新增", row?: any) {
     if (!currentDictInfo.value?.dict_type_code) {
-      message("请先选择字典类型", { type: "warning" });
+      ElMessage.warning("请先选择字典类型");
       return;
     }
     addDialog({
@@ -198,9 +191,7 @@ export function useDict() {
         const FormRef = dictDataFormDialogRef.value.getRef();
         const curData = options.props.formInline as DictDataFormItemProps;
         function chores() {
-          message(`您${title}了数据标签为${curData.dict_key}的这条数据`, {
-            type: "success"
-          });
+          ElMessage.success(`操作成功`);
           done(); // 关闭弹框
           loadDictData(); // 刷新表格数据
         }
@@ -215,7 +206,7 @@ export function useDict() {
               chores();
             } catch (error) {
               console.error(`${title}字典数据失败:`, error);
-              message(`${title}字典数据失败`, { type: "error" });
+              ElMessage.error(`操作失败` + error);
             }
           }
         });
@@ -226,23 +217,15 @@ export function useDict() {
   async function handleDictDataDelete(row: any) {
     try {
       await dictApi.deleteDictData({ dict_id: row.dict_id });
-      message(`您删除了数据标签为${row.dict_key}的这条数据`, {
-        type: "success"
-      });
+      ElMessage.success(`操作成功`);
       loadDictData();
     } catch (error) {
       console.error("删除字典数据失败:", error);
+      ElMessage.error(`操作失败` + error);
     }
   }
 
-  function resetForm(formEl) {
-    if (!formEl) return;
-    formEl.resetFields();
-    pagination.currentPage = 1;
-    onSearch();
-  }
-
-  async function onSearch() {
+  async function onSearch(formData: Record<string, any> = {}) {
     loading.value = true;
     try {
       const params: any = {
@@ -250,15 +233,15 @@ export function useDict() {
         page_size: pagination.pageSize
       };
 
-      // if (!isAllEmpty(form.dictName)) {
-      //   params.dict_type_name = form.dict_type_name;
-      // }
-      // if (!isAllEmpty(form.dictType)) {
-      //   params.dict_type_code = form.dict_type_code;
-      // }
-      // if (!isAllEmpty(form.status)) {
-      //   params.status = String(form.status);
-      // }
+      if (!isAllEmpty(formData.dict_type_name)) {
+        params.dict_type_name = formData.dict_type_name;
+      }
+      if (!isAllEmpty(formData.dict_type_code)) {
+        params.dict_type_code = formData.dict_type_code;
+      }
+      if (!isAllEmpty(formData.status)) {
+        params.status = formData.status;
+      }
 
       const res = await dictApi.getDictTypeList(params);
       if (res?.success) {
@@ -267,8 +250,7 @@ export function useDict() {
         pagination.currentPage = res.data?.page || 1;
         pagination.pageSize = res.data?.page_size || 10;
       } else {
-        dataList.value = [];
-        pagination.total = 0;
+        throw new Error(res.error);
       }
     } catch (error) {
       console.error("获取字典列表失败:", error);
@@ -282,12 +264,16 @@ export function useDict() {
   function handleSizeChange(val: number) {
     pagination.pageSize = val;
     pagination.currentPage = 1;
-    onSearch();
+    // 获取 ReTable 内部的表单数据
+    const formData = tableRef.value?.searchForm || {};
+    onSearch(formData);
   }
 
   function handleCurrentChange(val: number) {
     pagination.currentPage = val;
-    onSearch();
+    // 获取 ReTable 内部的表单数据
+    const formData = tableRef.value?.searchForm || {};
+    onSearch(formData);
   }
 
   function openDialog(title = "新增", row?: FormItemProps) {
@@ -311,28 +297,33 @@ export function useDict() {
       fullscreenIcon: true,
       closeOnClickModal: false,
       contentRenderer: () =>
-        h(editFormComponent, { ref: formRef, formInline: null }),
+        h(editFormComponent, { ref: editFormRef, formInline: null }),
       beforeSure: (done, { options }) => {
-        const FormRef = formRef.value.getRef();
+        const FormRef = editFormRef.value.getRef();
         const curData = options.props.formInline as FormItemProps;
         function chores() {
-          message(`您${title}了字典名称为${curData.dict_type_name}的这条数据`, {
-            type: "success"
-          });
+          ElMessage.success(`操作成功`);
           done(); // 关闭弹框
-          onSearch(); // 刷新表格数据
+          // 获取 ReTable 内部的表单数据
+          const formData = tableRef.value?.searchForm || {};
+          onSearch(formData); // 刷新表格数据
         }
         FormRef.validate(async valid => {
           if (valid) {
             try {
+              let res = null;
               if (!curData.dict_type_id) {
-                await dictApi.addDictType(curData);
+                res = await dictApi.addDictType(curData);
               } else {
-                await dictApi.updateDictType(curData);
+                res = await dictApi.updateDictType(curData);
+              }
+              if (!res?.success) {
+                throw new Error(res.error);
               }
               chores();
             } catch (error) {
               console.error(`${title}字典失败:`, error);
+              ElMessage.error(`操作失败` + error);
             }
           }
         });
@@ -342,52 +333,61 @@ export function useDict() {
 
   async function handleDelete(row: FormItemProps) {
     try {
-      await dictApi.deleteDictType({ dict_type_id: row.dict_type_id! });
-      message(`您删除了字典名称为${row.dict_type_name}的这条数据`, {
-        type: "success"
+      const res = await dictApi.deleteDictType({
+        dict_type_id: row.dict_type_id!
       });
+      if (!res?.success) {
+        throw new Error(res.error);
+      }
+      ElMessage.success(`操作成功`);
       // 清除表格选中状态
       const tableInstance = tableRef.value?.getTableRef?.();
       if (tableInstance?.clearSelection) {
         tableInstance.clearSelection();
       }
       selectedRows.value = [];
-      onSearch();
+      // 获取 ReTable 内部的表单数据
+      const formData = tableRef.value?.searchForm || {};
+      onSearch(formData);
     } catch (error) {
       console.error("删除字典失败:", error);
+      ElMessage.error(`操作失败` + error);
     }
   }
 
   async function handleBatchDelete() {
     if (selectedRows.value.length === 0) {
-      message("请至少选择一条数据", { type: "warning" });
+      ElMessage.warning("请至少选择一条数据");
       return;
     }
     try {
       const ids = selectedRows.value.map(row => row.dict_type_id).join(",");
-      await dictApi.deleteDictType(ids as any);
-      message(`成功删除 ${selectedRows.value.length} 条数据`, {
-        type: "success"
-      });
+      const res = await dictApi.deleteDictType(ids as any);
+      if (!res?.success) {
+        throw new Error(res.error);
+      }
+      ElMessage.success(`操作成功`);
       // 清除表格选中状态
       const tableInstance = tableRef.value?.getTableRef?.();
       if (tableInstance?.clearSelection) {
         tableInstance.clearSelection();
       }
       selectedRows.value = [];
-      onSearch();
+      // 获取 ReTable 内部的表单数据
+      const formData = tableRef.value?.searchForm || {};
+      onSearch(formData);
     } catch (error) {
       console.error("批量删除字典失败:", error);
-      message("批量删除字典失败", { type: "error" });
+      ElMessage.error(`操作失败` + error);
     }
   }
 
   onMounted(() => {
-    onSearch();
+    // 初始加载时使用空表单数据
+    onSearch({});
   });
 
   return {
-    form,
     loading,
     columns,
     dataList,
@@ -396,8 +396,6 @@ export function useDict() {
     tableRef,
     /** 搜索 */
     onSearch,
-    /** 重置 */
-    resetForm,
     /** 新增、修改字典 */
     openDialog,
     /** 删除字典 */

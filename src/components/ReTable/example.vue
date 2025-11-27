@@ -38,7 +38,7 @@ const columns = [
   },
   {
     label: "操作",
-    fixed: "right",
+    fixed: "right" as const,
     width: 200,
     slot: "operation"
   }
@@ -51,10 +51,11 @@ const pagination = ref({
   background: true
 });
 
-// 搜索
-function onSearch() {
+// 搜索 - 现在会接收表单数据作为参数
+function onSearch(formData: Record<string, any>) {
+  console.log("搜索表单数据:", formData);
   loading.value = true;
-  // 模拟 API 调用
+  // 模拟 API 调用，使用 formData 进行搜索
   setTimeout(() => {
     loading.value = false;
   }, 1000);
@@ -68,13 +69,17 @@ function handleSelectionChange(selection: any[]) {
 // 分页大小变化
 function handleSizeChange(size: number) {
   pagination.value.pageSize = size;
-  onSearch();
+  // 获取表单数据
+  const formData = tableRef.value?.searchForm || {};
+  onSearch(formData);
 }
 
 // 当前页变化
 function handleCurrentChange(page: number) {
   pagination.value.currentPage = page;
-  onSearch();
+  // 获取表单数据
+  const formData = tableRef.value?.searchForm || {};
+  onSearch(formData);
 }
 
 // 新增
@@ -104,11 +109,37 @@ function handleDelete(row: any) {
       :loading="loading"
       row-key="id"
       :pagination="pagination"
+      :show-search-form="true"
+      :search-form-expand="true"
       @refresh="onSearch"
       @selection-change="handleSelectionChange"
       @page-size-change="handleSizeChange"
       @page-current-change="handleCurrentChange"
     >
+      <!-- 筛选表单插槽 - form 数据由 ReTable 内部管理 -->
+      <template #search-form="{ form }">
+        <el-form-item label="项目名称：" prop="name">
+          <el-input
+            v-model="form.name"
+            placeholder="请输入项目名称"
+            clearable
+            class="w-[180px]!"
+          />
+        </el-form-item>
+        <el-form-item label="状态：" prop="status">
+          <el-select
+            v-model="form.status"
+            placeholder="请选择状态"
+            clearable
+            class="w-[180px]!"
+          >
+            <el-option label="进行中" value="进行中" />
+            <el-option label="已完成" value="已完成" />
+            <el-option label="已暂停" value="已暂停" />
+          </el-select>
+        </el-form-item>
+      </template>
+
       <!-- 工具栏按钮 -->
       <template #buttons>
         <el-button

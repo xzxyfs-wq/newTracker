@@ -4,6 +4,7 @@ import { ref, watch } from "vue";
 import More2Fill from "~icons/ri/more-2-fill?width=18&height=18";
 import ExpandIcon from "./svg/expand.svg?component";
 import UnExpandIcon from "./svg/unexpand.svg?component";
+import ElTreeLine from "@/components/ReTreeLine";
 
 defineProps({
   treeLoading: Boolean,
@@ -68,10 +69,23 @@ defineExpose({ onTreeReset, setCurrentKey });
 </script>
 
 <template>
-  <div
-    v-loading="treeLoading"
-    class="h-full bg-bg_color overflow-hidden relative"
-  >
+  <div class="h-full bg-bg_color overflow-hidden relative">
+    <!-- 自定义 loading 遮罩层 -->
+    <div v-if="treeLoading" class="loading-overlay">
+      <div class="el-loading-spinner">
+        <svg class="circular" viewBox="0 0 50 50">
+          <circle
+            class="path"
+            cx="25"
+            cy="25"
+            r="20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          />
+        </svg>
+      </div>
+    </div>
     <div class="flex items-center h-[34px] gap-2 px-2">
       <el-input
         v-model="searchValue"
@@ -114,18 +128,23 @@ defineExpose({ onTreeReset, setCurrentKey });
         :expand-on-click-node="false"
         :filter-node-method="filterNode"
         highlight-current
+        :indent="30"
         @node-click="nodeClick"
       >
         <template #default="{ node }">
-          <span
-            :class="[
-              searchValue.trim().length > 0 &&
-                node.label.includes(searchValue) &&
-                'text-red-500'
-            ]"
-          >
-            {{ node.label }}
-          </span>
+          <el-tree-line :node="node" :showLabelLine="true" :indent="30">
+            <template #node-label>
+              <span
+                :class="[
+                  searchValue.trim().length > 0 &&
+                    node.label.includes(searchValue) &&
+                    'text-red-500'
+                ]"
+              >
+                {{ node.label }}
+              </span>
+            </template>
+          </el-tree-line>
         </template>
       </el-tree>
     </el-scrollbar>
@@ -147,6 +166,75 @@ defineExpose({ onTreeReset, setCurrentKey });
   &:focus,
   &:focus-visible {
     outline: none;
+  }
+}
+
+// 自定义 loading 遮罩层 - 完全控制位置，避免抖动
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  pointer-events: none;
+  overflow: visible;
+}
+
+// 使用 Element Plus 的 loading spinner 样式
+.el-loading-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.el-loading-spinner .circular {
+  width: 42px;
+  height: 42px;
+  animation: loading-rotate 2s linear infinite;
+}
+
+.el-loading-spinner .path {
+  animation: loading-dash 1.5s ease-in-out infinite;
+  stroke-dasharray: 90, 150;
+  stroke-dashoffset: 0;
+  stroke-width: 2;
+  stroke: var(--el-color-primary);
+  stroke-linecap: round;
+}
+
+@keyframes loading-rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loading-dash {
+  0% {
+    stroke-dasharray: 1, 200;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 90, 200;
+    stroke-dashoffset: -35px;
+  }
+  100% {
+    stroke-dasharray: 90, 200;
+    stroke-dashoffset: -125px;
   }
 }
 </style>

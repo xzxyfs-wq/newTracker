@@ -20,6 +20,20 @@ export const userApi = {
       mod: "user",
       params
     });
+  },
+  updateUser: (params?: object) => {
+    return serviceCall<responseResult>({
+      action: "update_sys_user",
+      mod: "user",
+      params
+    });
+  },
+  resetPassword: (params?: object) => {
+    return serviceCall<responseResult>({
+      action: "reset_sys_user_pwd",
+      mod: "user",
+      params
+    });
   }
 };
 

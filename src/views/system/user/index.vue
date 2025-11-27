@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import tree from "./tree.vue";
 import { useUser } from "./utils/hook";
-import { PureTableBar } from "@/components/RePureTableBar";
+import { ReTable } from "@/components/ReTable";
 import { useRenderIcon } from "@/components/ReIcon/src/hooks";
 
 import Upload from "~icons/ri/upload-line";
@@ -19,7 +19,6 @@ defineOptions({
 });
 
 const treeRef = ref();
-const formRef = ref();
 const tableRef = ref();
 
 const {
@@ -61,71 +60,67 @@ const {
       />
     </div>
     <div class="flex-1 overflow-hidden h-full">
-      <el-form
-        ref="formRef"
-        :inline="true"
-        :model="form"
-        class="search-form bg-bg_color w-full pl-8 pt-[12px] overflow-auto"
+      <ReTable
+        ref="tableRef"
+        title="用户管理"
+        :columns="columns"
+        :data="dataList"
+        :loading="loading"
+        row-key="id"
+        :pagination="pagination"
+        :show-search-form="true"
+        :search-form-expand="true"
+        @refresh="onSearch"
+        @selection-change="handleSelectionChange"
+        @page-size-change="handleSizeChange"
+        @page-current-change="handleCurrentChange"
       >
-        <el-form-item label="用户名称：" prop="username">
-          <el-input
-            v-model="form.username"
-            placeholder="请输入用户名称"
-            clearable
-            class="w-[180px]!"
-          />
-        </el-form-item>
-        <el-form-item label="用户昵称：" prop="nick_name">
-          <el-input
-            v-model="form.nick_name"
-            placeholder="请输入用户昵称"
-            clearable
-            class="w-[180px]!"
-          />
-        </el-form-item>
-        <el-form-item label="工号：" prop="barcode">
-          <el-input
-            v-model="form.barcode"
-            placeholder="请输入工号"
-            clearable
-            class="w-[180px]!"
-          />
-        </el-form-item>
-        <el-form-item label="手机号码：" prop="phone">
-          <el-input
-            v-model="form.phone"
-            placeholder="请输入手机号码"
-            clearable
-            class="w-[180px]!"
-          />
-        </el-form-item>
-        <el-form-item label="状态：" prop="status">
-          <el-select
-            v-model="form.status"
-            placeholder="请选择"
-            clearable
-            class="w-[180px]!"
-          >
-            <el-option label="已开启" value="1" />
-            <el-option label="已关闭" value="0" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            :icon="useRenderIcon('ri/search-line')"
-            :loading="loading"
-            @click="onSearch"
-          >
-            搜索
-          </el-button>
-          <el-button :icon="useRenderIcon(Refresh)" @click="resetForm(formRef)">
-            重置
-          </el-button>
-        </el-form-item>
-      </el-form>
-
-      <PureTableBar title="用户管理" :columns="columns" @refresh="onSearch">
+        <!-- 筛选表单插槽 - form 由 ReTable 内部管理，但我们需要同步到外部的 form -->
+        <template #search-form="{ form: searchForm, formRef: searchFormRef }">
+          <el-form-item label="用户名称：" prop="username">
+            <el-input
+              v-model="searchForm.username"
+              placeholder="请输入用户名称"
+              clearable
+              class="w-[180px]!"
+            />
+          </el-form-item>
+          <el-form-item label="用户昵称：" prop="nick_name">
+            <el-input
+              v-model="searchForm.nick_name"
+              placeholder="请输入用户昵称"
+              clearable
+              class="w-[180px]!"
+            />
+          </el-form-item>
+          <el-form-item label="工号：" prop="barcode">
+            <el-input
+              v-model="searchForm.barcode"
+              placeholder="请输入工号"
+              clearable
+              class="w-[180px]!"
+            />
+          </el-form-item>
+          <el-form-item label="手机号码：" prop="phone">
+            <el-input
+              v-model="searchForm.phone"
+              placeholder="请输入手机号码"
+              clearable
+              class="w-[180px]!"
+            />
+          </el-form-item>
+          <el-form-item label="状态：" prop="status">
+            <el-select
+              v-model="searchForm.status"
+              placeholder="请选择"
+              clearable
+              class="w-[180px]!"
+            >
+              <el-option label="已开启" value="1" />
+              <el-option label="已关闭" value="0" />
+            </el-select>
+          </el-form-item>
+        </template>
         <template #buttons>
           <el-button
             type="primary"
@@ -135,7 +130,7 @@ const {
             新增用户
           </el-button>
         </template>
-        <template v-slot="{ size, dynamicColumns }">
+        <template #before-table="{ size, dynamicColumns }">
           <div
             v-if="selectedNum > 0"
             v-motion-fade
@@ -160,107 +155,86 @@ const {
               </template>
             </el-popconfirm>
           </div>
-          <pure-table
-            ref="tableRef"
-            row-key="id"
-            adaptive
-            :adaptiveConfig="{ offsetBottom: 108 }"
-            align-whole="center"
-            table-layout="auto"
-            :loading="loading"
+        </template>
+        <template #operation="{ row, size }">
+          <el-button
+            class="reset-margin"
+            link
+            type="primary"
             :size="size"
-            :data="dataList"
-            :columns="dynamicColumns"
-            :pagination="{ ...pagination, size }"
-            :header-cell-style="{
-              background: 'var(--el-fill-color-light)',
-              color: 'var(--el-text-color-primary)'
-            }"
-            @selection-change="handleSelectionChange"
-            @page-size-change="handleSizeChange"
-            @page-current-change="handleCurrentChange"
+            :icon="useRenderIcon(EditPen)"
+            @click="openDialog('修改', row)"
           >
-            <template #operation="{ row }">
+            修改
+          </el-button>
+          <el-popconfirm
+            :title="`是否确认删除用户编号为${row.id}的这条数据`"
+            @confirm="handleDelete(row)"
+          >
+            <template #reference>
               <el-button
                 class="reset-margin"
                 link
                 type="primary"
                 :size="size"
-                :icon="useRenderIcon(EditPen)"
-                @click="openDialog('修改', row)"
+                :icon="useRenderIcon(Delete)"
               >
-                修改
+                删除
               </el-button>
-              <el-popconfirm
-                :title="`是否确认删除用户编号为${row.id}的这条数据`"
-                @confirm="handleDelete(row)"
-              >
-                <template #reference>
+            </template>
+          </el-popconfirm>
+          <el-dropdown>
+            <el-button
+              class="ml-3! mt-[2px]!"
+              link
+              type="primary"
+              :size="size"
+              :icon="useRenderIcon(More)"
+              @click="handleUpdate(row)"
+            />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item>
                   <el-button
-                    class="reset-margin"
+                    :class="buttonClass"
                     link
                     type="primary"
                     :size="size"
-                    :icon="useRenderIcon(Delete)"
+                    :icon="useRenderIcon(Upload)"
+                    @click="handleUpload(row)"
                   >
-                    删除
+                    上传头像
                   </el-button>
-                </template>
-              </el-popconfirm>
-              <el-dropdown>
-                <el-button
-                  class="ml-3! mt-[2px]!"
-                  link
-                  type="primary"
-                  :size="size"
-                  :icon="useRenderIcon(More)"
-                  @click="handleUpdate(row)"
-                />
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item>
-                      <el-button
-                        :class="buttonClass"
-                        link
-                        type="primary"
-                        :size="size"
-                        :icon="useRenderIcon(Upload)"
-                        @click="handleUpload(row)"
-                      >
-                        上传头像
-                      </el-button>
-                    </el-dropdown-item>
-                    <el-dropdown-item>
-                      <el-button
-                        :class="buttonClass"
-                        link
-                        type="primary"
-                        :size="size"
-                        :icon="useRenderIcon(Password)"
-                        @click="handleReset(row)"
-                      >
-                        重置密码
-                      </el-button>
-                    </el-dropdown-item>
-                    <el-dropdown-item>
-                      <el-button
-                        :class="buttonClass"
-                        link
-                        type="primary"
-                        :size="size"
-                        :icon="useRenderIcon(Role)"
-                        @click="handleRole(row)"
-                      >
-                        分配角色
-                      </el-button>
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+                </el-dropdown-item>
+                <el-dropdown-item>
+                  <el-button
+                    :class="buttonClass"
+                    link
+                    type="primary"
+                    :size="size"
+                    :icon="useRenderIcon(Password)"
+                    @click="handleReset(row)"
+                  >
+                    重置密码
+                  </el-button>
+                </el-dropdown-item>
+                <el-dropdown-item>
+                  <el-button
+                    :class="buttonClass"
+                    link
+                    type="primary"
+                    :size="size"
+                    :icon="useRenderIcon(Role)"
+                    @click="handleRole(row)"
+                  >
+                    分配角色
+                  </el-button>
+                </el-dropdown-item>
+              </el-dropdown-menu>
             </template>
-          </pure-table>
+          </el-dropdown>
         </template>
-      </PureTableBar>
+      </ReTable>
     </div>
   </div>
 </template>
@@ -268,12 +242,5 @@ const {
 <style lang="scss" scoped>
 :deep(.el-dropdown-menu__item i) {
   margin: 0;
-}
-
-.search-form {
-  flex-shrink: 0;
-  :deep(.el-form-item) {
-    margin-bottom: 12px;
-  }
 }
 </style>

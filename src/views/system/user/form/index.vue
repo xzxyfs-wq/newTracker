@@ -20,6 +20,8 @@ const props = withDefaults(defineProps<FormProps>(), {
     role_ids: [],
     post_id: "",
     barcode: "",
+    identify_no: "",
+    account_expire_date: "",
     salt: "",
     user_login_type: 0
   })
@@ -67,6 +69,17 @@ defineExpose({ getRef });
             v-model="newFormInline.barcode"
             clearable
             placeholder="请输入工号"
+          />
+        </el-form-item>
+      </re-col>
+      <re-col :value="12" :xs="24" :sm="24">
+        <el-form-item label="证件号" prop="identify_no">
+          <el-input
+            v-model="newFormInline.identify_no"
+            clearable
+            placeholder="请输入证件号"
+            maxlength="18"
+            show-word-limit
           />
         </el-form-item>
       </re-col>
@@ -146,8 +159,8 @@ defineExpose({ getRef });
       <re-col :value="12" :xs="24" :sm="24">
         <el-form-item label="用户状态">
           <el-radio-group v-model="newFormInline.status">
-            <el-radio :label="1">启用</el-radio>
-            <el-radio :label="-1">停用</el-radio>
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="-1">停用</el-radio>
           </el-radio-group>
         </el-form-item>
       </re-col>
@@ -157,9 +170,22 @@ defineExpose({ getRef });
             <span style="line-height: 1.1">所有项目权限</span>
           </template>
           <el-radio-group v-model="newFormInline.project_auth">
-            <el-radio :label="1">开启</el-radio>
-            <el-radio :label="-1">关闭</el-radio>
+            <el-radio :value="1">开启</el-radio>
+            <el-radio :value="-1">关闭</el-radio>
           </el-radio-group>
+        </el-form-item>
+      </re-col>
+      <re-col :value="12" :xs="24" :sm="24">
+        <el-form-item label="有效期" prop="account_expire_date">
+          <el-date-picker
+            v-model="newFormInline.account_expire_date"
+            type="date"
+            placeholder="请选择有效期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            class="w-full"
+            clearable
+          />
         </el-form-item>
       </re-col>
     </el-row>

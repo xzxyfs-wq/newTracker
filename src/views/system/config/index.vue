@@ -83,9 +83,9 @@ async function loadAddFormDictOptions(dictType?: string) {
 
 <template>
   <div class="config-container">
-    <el-row :gutter="20" class="config-row">
+    <el-row :gutter="5" class="config-row">
       <!-- 左侧：组标签和配置表单 -->
-      <el-col :span="14" class="config-left">
+      <el-col :span="14" class="config-left gap-2">
         <!-- 上方：组标签 -->
         <div class="group-tags-container flex items-start gap-1">
           <div class="flex-1 flex flex-wrap gap-1">
@@ -428,7 +428,6 @@ async function loadAddFormDictOptions(dictType?: string) {
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 4px;
   padding: 16px;
-  margin-bottom: 20px;
   flex-shrink: 0;
 
   .group-tags-header {

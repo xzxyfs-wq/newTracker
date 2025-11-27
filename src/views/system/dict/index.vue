@@ -18,16 +18,13 @@ defineOptions({
   name: "SystemDict"
 });
 
-const formRef = ref();
 const dictDataTableRef = ref();
 const {
-  form,
   loading,
   columns,
   dataList,
   pagination,
   onSearch,
-  resetForm,
   openDialog,
   handleDelete,
   handleBatchDelete,
@@ -48,58 +45,11 @@ const {
   openDictDataDialog,
   handleDictDataDelete
 } = useDict();
+import ReSelect from "@/components/ReSelect/index.vue";
 </script>
 
 <template>
   <div>
-    <el-form
-      ref="formRef"
-      :inline="true"
-      :model="form"
-      class="search-form bg-bg_color w-full pl-8 pt-[12px]"
-    >
-      <el-form-item label="字典名称：" prop="dict_type_name">
-        <el-input
-          v-model="form.dict_type_name"
-          placeholder="请输入字典名称"
-          clearable
-          class="w-[180px]!"
-        />
-      </el-form-item>
-      <el-form-item label="字典类型：" prop="dict_type_code">
-        <el-input
-          v-model="form.dict_type_code"
-          placeholder="请输入字典类型"
-          clearable
-          class="w-[180px]!"
-        />
-      </el-form-item>
-      <el-form-item label="状态：" prop="status">
-        <el-select
-          v-model="form.status"
-          placeholder="请选择状态"
-          clearable
-          class="w-[180px]!"
-        >
-          <el-option label="正常" :value="0" />
-          <el-option label="停用" :value="1" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button
-          type="primary"
-          :icon="useRenderIcon('ri/search-line')"
-          :loading="loading"
-          @click="onSearch"
-        >
-          搜索
-        </el-button>
-        <el-button :icon="useRenderIcon(Refresh)" @click="resetForm(formRef)">
-          重置
-        </el-button>
-      </el-form-item>
-    </el-form>
-
     <ReTable
       ref="tableRef"
       title="字典管理"
@@ -108,11 +58,43 @@ const {
       :loading="loading"
       row-key="dictId"
       :pagination="pagination"
+      :show-search-form="true"
+      :search-form-expand="true"
       @refresh="onSearch"
       @selection-change="handleSelectionChange"
       @page-size-change="handleSizeChange"
       @page-current-change="handleCurrentChange"
     >
+      <!-- 筛选表单插槽 - form 由 ReTable 内部管理 -->
+      <template #search-form="{ form }">
+        <el-form-item label="字典名称：" prop="dict_type_name">
+          <el-input
+            v-model="form.dict_type_name"
+            placeholder="请输入字典名称"
+            clearable
+            class="w-[180px]!"
+          />
+        </el-form-item>
+        <el-form-item label="字典类型：" prop="dict_type_code">
+          <el-input
+            v-model="form.dict_type_code"
+            placeholder="请输入字典类型"
+            clearable
+            class="w-[180px]!"
+          />
+        </el-form-item>
+        <el-form-item label="状态：" prop="status">
+          <el-select
+            v-model="form.status"
+            placeholder="请选择状态"
+            clearable
+            class="w-[180px]!"
+          >
+            <el-option label="正常" :value="1" />
+            <el-option label="停用" :value="-1" />
+          </el-select>
+        </el-form-item>
+      </template>
       <template #buttons>
         <el-button
           type="primary"

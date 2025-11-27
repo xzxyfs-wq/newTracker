@@ -11,9 +11,12 @@ interface FormItemProps {
   phone: string | number;
   email: string;
   status: number;
+  roles?: any[];
   role_ids?: number[];
   post_id?: number | string;
   barcode?: string;
+  identify_no?: string;
+  account_expire_date?: string;
   salt?: string;
   project_auth?: number;
   user_login_type?: number;
